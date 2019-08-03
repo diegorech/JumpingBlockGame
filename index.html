@@ -1,0 +1,294 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Game Index en</title>
+    <style>
+        canvas {
+            /* centraliza a canvas */
+            position: absolute;
+            top: 0px;
+            bottom: 0px;
+            left: 0px;
+            right: 0px;
+            margin: auto;
+        }
+         
+    </style>
+</head>
+<body>
+    
+    
+    
+    <script>
+    // game variables
+    var canvas, ctx, HEIGHT, WIDTH, frames = 0, maxJumps = 3, speed = 6,
+    atualState, record,
+            //ctx and canvas , for ilustrate game
+            //HEIGHT and WIDTH for take the dimensions of user screen
+            //speed needs to be a number multiple of 6 because of the canvas width and the score count
+            //frames++ 
+    
+    states = {
+        start: 0,
+        playing: 1,
+        lose: 2
+    },
+
+    floor = {
+        y: 550,
+        height: 50,
+        color: '#ffdf70',
+
+        draw: function() { //metod
+            ctx.fillStyle = this.color
+            ctx.fillRect( 0, this.y, WIDTH, this.height)
+        }
+
+    },
+
+    block = {
+        width: 50,
+        height: 50,
+        x: 50,
+        y: 0,
+        color: "#ff4e4e",
+        gravity: 1.5,
+        veloc: 0,
+        jumpForce: 24,
+        qntJumps: 0,
+        score: 0,
+        
+
+        update: function() {
+            //sets for block down
+            this.veloc += this.gravity
+            this.y += this.veloc
+
+            //sets for not overcome the canvas and reset jumps
+            if( this.y > floor.y - this.height && atualState != states.lose) {
+                this.y = floor.y - this.height
+                this.qntJumps = 0
+                this.veloc = 0
+            }
+        },
+        jump: function() {
+
+            if( this.qntJumps < maxJumps ) {
+                this.veloc =- this.jumpForce
+                this.qntJumps++
+                
+            }
+
+        },
+        draw(){
+            ctx.fillStyle = this.color
+            ctx.fillRect(this.x, this.y, this.width, this.height)
+        },
+        
+        reset() {
+            this.veloc = 0
+            this.y = 0
+
+            
+
+            this.score = 0
+        },
+    },
+
+    obstacles = {
+        obs: [],
+        colors: ['#ff3399', '#00ff99', '#663300', '#0066ff','#ff0000', '#336600', '#ff9966'],
+        insertTime: 0,
+
+        //push the random sized and colored rects in the array obs
+        insert: function() {
+            this.obs.push({
+                x: WIDTH,
+                width: 50,
+                //width: 30 + Math.floor(40 * Math.random()),
+                height: 30 + Math.floor(120 * Math.random()),
+                color: this.colors[ Math.floor(7 * Math.random()) ]
+            })
+            
+            
+            //random time to insert rects
+            this.insertTime = 35 +  Math.floor(21 * Math.random())
+ 
+            },
+
+        //make the rects walk inside the canvas 
+        update: function() {
+
+            if (this.insertTime == 0 ) {
+                this.insert()
+            } else this.insertTime--
+            for (var i = 0, tam = this.obs.length; i < tam; i++) {
+                var obs = this.obs[i]
+
+                obs.x -= speed
+
+                //check for impacts
+                 if ( block.x < obs.x + obs.width && block.x + block.width >= obs.x &&  block.y + block.height >= floor.y - obs.height ) {
+                    
+                    atualState = states.lose
+
+                    //creat a record in LocalStorage
+                    if ( block.score > record ) {
+                        localStorage.setItem('record', block.score)
+                        record = block.score
+                    } 
+                 }
+                 else if (obs.x == 0) {
+                    //only works well with speed = 6 and obstacle width = 50px
+                    //
+                    block.score ++
+                 }
+                //delete the rect after it overcome the canvas
+                else if ( obs.x <= obs.x - obs.width ) {
+                    this.obs.splice(i, 1)
+                    tam-- //? for error when 2 rects was insert and the                 first was deleted
+                    i-- //?
+                }
+            }
+        },
+
+        clear: function() {
+            this.obs = []
+        },
+
+        //draw the rects with random size and color
+        draw: function() {
+            for( let i = 0, tam = this.obs.length; i < tam; i++ ) {
+                var obs = this.obs[i]
+                ctx.fillStyle = obs.color
+                ctx.fillRect( obs.x, floor.y - obs.height, obs.width, obs.height )
+            }
+        }
+        
+    }
+
+
+    function click(event) {
+        if( atualState == states.playing ) {
+            block.jump()
+
+        }
+        else if ( atualState == states.start ) {
+            atualState = states.playing
+
+        } 
+        else if ( atualState == states.lose && block.y >= 2 * HEIGHT ) {
+            atualState = states.start
+            obstacles.clear()
+            block.reset()
+                      
+        }
+        
+        
+         
+    }
+    function main() {
+        HEIGHT = window.innerHeight //height of user window
+        WIDTH = window.innerWidth
+
+        if( WIDTH >= 500 ) {
+            WIDTH = 600
+            HEIGHT = 600
+        }
+
+        canvas = document.createElement('canvas') //creating canvas in script
+        canvas.width = WIDTH
+        canvas.height = HEIGHT
+        canvas.style.border = '1px solid #000' //creating a border for the canvas
+
+        ctx = canvas.getContext('2d')
+        document.body.appendChild(canvas)//put the canvas in the HTML
+        document.addEventListener( 'mousedown', click )
+     
+
+        atualState = states.start
+
+        record = localStorage.getItem('record')
+        if ( record == null ) {
+            record = 0
+        }
+        playGame()
+
+    }
+    
+    function playGame() {
+        //loop and att game canvas
+        update()
+        draw()
+
+        window.requestAnimationFrame(playGame);
+        
+    }
+    
+    function update() {
+        //update status
+        frames++
+        
+        block.update()
+        
+        
+        if( atualState == states.playing) {
+            obstacles.update()
+
+        } 
+    }
+
+    //where everything is drawn on the screen
+    function draw() {
+        ctx.fillStyle = '#50beff'
+        ctx.fillRect(0, 0, WIDTH, HEIGHT)//pinta e preenche o canvas
+        
+        ctx.fillStyle = '#fff'
+        ctx.font = '50px Arial'
+        ctx.fillText(block.score, 30, 68)
+
+        if (atualState == states.start) {
+            ctx.fillStyle = 'green'
+            ctx.fillRect( WIDTH / 2 - 50, HEIGHT / 2 - 50, 100, 100 )
+
+        }
+        else if ( atualState == states.lose) {
+            ctx.fillStyle = 'red'
+            ctx.fillRect( WIDTH / 2 - 50, HEIGHT / 2 - 50, 100, 100 )
+
+            ctx.save()
+            ctx.translate( WIDTH / 2 , HEIGHT / 2 )
+            ctx.fillStyle = '#fff'
+
+            if ( block.score > record) {
+                ctx.fillText('Novo Record!', -150, -65)
+                ctx.font = '50px Arial'
+            }
+            else {
+                ctx.fillText(`Record ${record}`, -70 -ctx.measureText(record).width/2 , -65)
+            }    
+
+            ctx.fillText(block.score, -ctx.measureText(block.score).width/2, 20)
+
+            ctx.restore()
+
+        }
+        else if ( atualState == states.playing ) 
+            
+            obstacles.draw()
+
+        floor.draw()
+        block.draw()
+        
+        }
+
+
+    main();//star the game
+
+   </script>
+    
+</body>
+</html>
